@@ -16,3 +16,8 @@ captures/
 venv/
 .venv/
 env/
+
+# Editor
+.vscode/
+.idea/
+
