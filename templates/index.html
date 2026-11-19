@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JagaRuang — Dashboard Keamanan Ruangan IoT + AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <!-- HEADER -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold">
+                    JR
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white">JagaRuang IoT</h1>
+                    <p class="text-xs text-slate-400">Alarm Ruangan Pintar dengan Verifikasi AI YOLOv8 & WhatsApp</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span id="badge-mode"
+                    class="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    Mode Kamera YOLO
+                </span>
+                <span id="badge-status"
+                    class="px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    ● OFFLINE
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- BANNER ALARM DARURAT -->
+        <div id="alarm-banner"
+            class="hidden rounded-xl bg-rose-600/20 border-2 border-rose-500 p-4 flex flex-wrap items-center justify-between gap-4 animate-pulse">
+            <div>
+                <h2 class="text-rose-400 font-bold text-lg">🚨 PERINGATAN: ORANG TERDETEKSI DI DALAM RUANGAN!</h2>
+                <p class="text-sm text-rose-200">Buzzer aktif, lampu menyala, dan notifikasi foto telah dikirim ke
+                    WhatsApp.</p>
+            </div>
+            <button onclick="kirimKontrol('reset_alarm')"
+                class="px-5 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow-lg transition">
+                Matikan Alarm & Reset
+            </button>
+        </div>
+
+        <!-- PANEL KONTROL ALAT -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">Sistem Keamanan</p>
+                    <p id="text-armed" class="font-bold text-emerald-400 mt-0.5">AKTIF (ARMED)</p>
+                </div>
+                <button onclick="kirimKontrol('toggle_armed')" id="btn-armed"
+                    class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white">
+                    Ubah
+                </button>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">Saklar Lampu (Relay)</p>
+                    <p id="text-lamp" class="font-bold text-slate-300 mt-0.5">MATI (OFF)</p>
+                </div>
+                <button onclick="kirimKontrol('toggle_lamp')" id="btn-lamp"
+                    class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white">
+                    Saklar
+                </button>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-400">Cadangan Wi-Fi CSI (Rp0)</p>
+                    <p id="text-csi" class="font-bold text-slate-300 mt-0.5">NONAKTIF</p>
+                </div>
+                <button onclick="kirimKontrol('toggle_backup_csi')"
+                    class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white">
+                    Mode
+                </button>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Status WhatsApp (Fonnte)</p>
+                <p id="text-wa" class="text-xs font-medium text-emerald-300 mt-1 truncate">Menunggu kejadian...</p>
+            </div>
+        </section>
+
+        <!-- KARTU STATISTIK LAPORAN & LINGKUNGAN -->
+        <section class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Total Pemicu PIR</p>
+                <p id="stat-pir" class="text-2xl font-bold text-white mt-1">0</p>
+                <p class="text-[11px] text-slate-500 mt-1">Semua gerakan mentah</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Terverifikasi Orang (AI)</p>
+                <p id="stat-orang" class="text-2xl font-bold text-rose-400 mt-1">0</p>
+                <p class="text-[11px] text-slate-500 mt-1">Alarm valid berbunyi</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Alarm Palsu Disaring</p>
+                <p id="stat-palsu" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+                <p id="stat-persen" class="text-[11px] text-emerald-500 mt-1">Reduksi 0% alarm palsu</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p class="text-xs text-slate-400">Suhu & Kelembapan</p>
+                <p class="text-2xl font-bold text-sky-400 mt-1"><span id="val-temp">0</span>°C</p>
+                <p class="text-[11px] text-slate-400 mt-1">Kelembapan: <span id="val-hum">0</span>%</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 col-span-2 lg:col-span-1">
+                <p class="text-xs text-slate-400">Sensor Cahaya (LDR)</p>
+                <p id="val-ldr-status" class="text-2xl font-bold text-amber-300 mt-1">TERANG</p>
+                <p class="text-[11px] text-slate-400 mt-1">Nilai ADC: <span id="val-ldr">0</span></p>
+            </div>
+        </section>
+
+        <!-- FOTO DETEKSI AI & GRAFIK DHT -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- BUKTI VISUAL ESP32-CAM + YOLO -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-white">Tangkapan ESP32-CAM & Bounding Box AI</h3>
+                        <span id="latest-label" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300">Menunggu
+                            foto...</span>
+                    </div>
+                    <div
+                        class="aspect-video bg-slate-950 border border-slate-800 rounded-lg overflow-hidden flex items-center justify-center">
+                        <img id="latest-img" src="" alt="Belum ada tangkapan kamera"
+                            class="hidden w-full h-full object-contain" />
+                        <p id="img-placeholder" class="text-xs text-slate-500">Belum ada gambar diterima dari ESP32-CAM
+                        </p>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3">
+                    *Jika ruangan gelap (LDR), ESP32 otomatis menyalakan lampu relay sebelum ESP32-CAM memotret.
+                </p>
+            </div>
+
+            <!-- GRAFIK SUHU & KELEMBAPAN -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h3 class="font-semibold text-white mb-3">Grafik Pemantauan Suhu & Kelembapan (DHT)</h3>
+                <div class="h-64">
+                    <canvas id="dhtChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- TABEL RIWAYAT KEJADIAN -->
+        <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-3">Riwayat Kejadian & Verifikasi AI</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="py-2.5 px-3">Waktu</th>
+                            <th class="py-2.5 px-3">Kategori</th>
+                            <th class="py-2.5 px-3">Hasil Analisis</th>
+                            <th class="py-2.5 px-3">Bukti Foto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body" class="divide-y divide-slate-800/70 text-slate-300">
+                        <tr>
+                            <td colspan="4" class="py-4 text-center text-slate-500 text-xs">Belum ada riwayat kejadian
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Inisialisasi Grafik Chart.js
+        const ctx = document.getElementById('dhtChart').getContext('2d');
+        const dhtChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Suhu (°C)',
+                        data: [],
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Kelembapan (%)',
+                        data: [],
+                        borderColor: '#34d399',
+                        backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+                },
+                plugins: { legend: { labels: { color: '#e2e8f0' } } }
+            }
+        });
+
+        // Nada peringatan sederhana via Web Audio API saat alarm aktif
+        function bunyikanBeepBrowser() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.18);
+            } catch (e) { }
+        }
+
+        async function kirimKontrol(action) {
+            await fetch('/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+            ambilDataDashboard();
+        }
+
+        async function ambilDataDashboard() {
+            try {
+                const res = await fetch('/api/dashboard');
+                const data = await res.json();
+                const st = data.state;
+
+                // Status Online/Offline
+                const badgeStatus = document.getElementById('badge-status');
+                if (data.online) {
+                    badgeStatus.textContent = '● ONLINE';
+                    badgeStatus.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                } else {
+                    badgeStatus.textContent = '● OFFLINE';
+                    badgeStatus.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                }
+
+                // Mode Kamera vs Cadangan Wi-Fi CSI
+                const badgeMode = document.getElementById('badge-mode');
+                badgeMode.textContent = st.backup_csi_mode ? 'Mode Cadangan Wi-Fi CSI (Rp0)' : 'Mode Kamera YOLO';
+
+                // Banner Alarm
+                const banner = document.getElementById('alarm-banner');
+                if (st.alarm_active) {
+                    banner.classList.remove('hidden');
+                    bunyikanBeepBrowser();
+                } else {
+                    banner.classList.add('hidden');
+                }
+
+                // Update Kontrol Text
+                document.getElementById('text-armed').textContent = st.armed ? 'AKTIF (ARMED)' : 'NONAKTIF (DISARMED)';
+                document.getElementById('text-armed').className = st.armed ? 'font-bold text-emerald-400 mt-0.5' : 'font-bold text-slate-400 mt-0.5';
+
+                document.getElementById('text-lamp').textContent = st.lamp_on ? 'MENYALA (ON)' : 'MATI (OFF)';
+                document.getElementById('text-lamp').className = st.lamp_on ? 'font-bold text-amber-400 mt-0.5' : 'font-bold text-slate-400 mt-0.5';
+
+                document.getElementById('text-csi').textContent = st.backup_csi_mode ? 'AKTIF' : 'NONAKTIF';
+                document.getElementById('text-wa').textContent = st.last_wa_status;
+
+                // Statistik
+                document.getElementById('stat-pir').textContent = data.stats.total_pir;
+                document.getElementById('stat-orang').textContent = data.stats.total_orang;
+                document.getElementById('stat-palsu').textContent = data.stats.total_palsu;
+                document.getElementById('stat-persen').textContent = `Reduksi ${data.stats.persen_reduksi}% alarm palsu`;
+
+                // Sensor Lingkungan
+                document.getElementById('val-temp').textContent = st.temperature;
+                document.getElementById('val-hum').textContent = st.humidity;
+                document.getElementById('val-ldr').textContent = st.ldr;
+                document.getElementById('val-ldr-status').textContent = st.is_dark ? 'GELAP (Auto-Lampu)' : 'TERANG';
+
+                // Foto Terbaru
+                document.getElementById('latest-label').textContent = st.latest_result;
+                if (st.latest_image) {
+                    const img = document.getElementById('latest-img');
+                    img.src = st.latest_image + '?t=' + new Date().getTime();
+                    img.classList.remove('hidden');
+                    document.getElementById('img-placeholder').classList.add('hidden');
+                }
+
+                // Grafik DHT
+                dhtChart.data.labels = data.chart.labels;
+                dhtChart.data.datasets[0].data = data.chart.temp;
+                dhtChart.data.datasets[1].data = data.chart.hum;
+                dhtChart.update('none');
+
+                // Tabel Riwayat
+                const tbody = document.getElementById('history-body');
+                if (data.history.length > 0) {
+                    tbody.innerHTML = data.history.map(item => {
+                        const isPerson = item.category === 'ORANG TERDETEKSI';
+                        const badgeClass = isPerson
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                        const linkFoto = item.image_path
+                            ? `<a href="${item.image_path}" target="_blank" class="text-sky-400 hover:underline text-xs">Lihat Foto</a>`
+                            : `<span class="text-slate-500 text-xs">-</span>`;
+                        return `
+              <tr>
+                <td class="py-2.5 px-3 text-xs font-mono">${item.timestamp}</td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-xs font-medium ${badgeClass}">${item.category}</span></td>
+                <td class="py-2.5 px-3 text-xs">${item.detail}</td>
+                <td class="py-2.5 px-3">${linkFoto}</td>
+              </tr>
+            `;
+                    }).join('');
+                }
+            } catch (err) {
+                console.error('Gagal mengambil data dashboard:', err);
+            }
+        }
+
+        // Refresh otomatis setiap 1,5 detik
+        setInterval(ambilDataDashboard, 1500);
+        ambilDataDashboard();
+    </script>
+</body>
+
+</html>
